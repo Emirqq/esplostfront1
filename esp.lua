@@ -1,4 +1,4 @@
--- The Lost Front | БЕЗ UI АВТОСТАРТ | ESP + VIS CHECK + HEALTH BAR
+-- The Lost Front | АВТОСТАРТ | ESP + VIS CHECK + ВЕРТИКАЛЬНЫЙ HEALTH BAR С HP
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -9,26 +9,22 @@ local LocalPlayer = Players.LocalPlayer
 local ESPEnabled = true
 local VisCheckEnabled = true 
 local HealthBarEnabled = true 
-local Highlights = {} -- Хранит {Highlight, HealthBar, HealthFill}
+local Highlights = {} -- Хранит {Highlight, HealthBar, HealthFill, HealthText}
 
 -- ============================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==============================
 
--- Проверка на врага (ищет никнейм локального игрока над головой цели)
 local function IsEnemy(plr)
     if not plr.Character or not plr.Character:FindFirstChild("Head") then return false end
     for _, v in pairs(plr.Character.Head:GetChildren()) do
         if (v:IsA("BillboardGui") or v:IsA("SurfaceGui")) then
             for _, t in pairs(v:GetChildren()) do
-                if t:IsA("TextLabel") and t.Text == plr.Name then
-                    return false
-                end
+                if t:IsA("TextLabel") and t.Text == plr.Name then return false end
             end
         end
     end
     return true
 end
 
--- Проверка видимости (Raycasting)
 local function IsVisible(targetCharacter)
     local localCharacter = LocalPlayer.Character
     local localHead = localCharacter and localCharacter:FindFirstChild("Head")
@@ -48,55 +44,66 @@ local function IsVisible(targetCharacter)
     if raycastResult then
         return raycastResult.Instance.Parent == targetCharacter or raycastResult.Instance:IsDescendantOf(targetCharacter) 
     end
-    
     return true
 end
 
--- Обновление цвета ESP обводки
 local function UpdateESPColor(plr)
     local highlightEntry = Highlights[plr]
     local highlight = highlightEntry and highlightEntry.Highlight
-    
     if not highlight or not plr.Character then return end
     
     local isVisible = VisCheckEnabled and IsVisible(plr.Character)
-
-    -- Белый для видимого, Красный для невидимого/скрытого
     highlight.OutlineColor = isVisible and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(255, 0, 0)
 end
 
--- Создание полосы здоровья
 local function CreateHealthBar(plr)
     local character = plr.Character
-    local head = character:FindFirstChild("Head")
-    if not character or not head or not Highlights[plr] or Highlights[plr].HealthBar then return end
+    local rootPart = character:FindFirstChild("HumanoidRootPart") 
+    if not character or not rootPart or not Highlights[plr] or Highlights[plr].HealthBar then return end
     
+    -- 1. BillboardGui (Основной контейнер)
     local HealthBarGui = Instance.new("BillboardGui")
-    HealthBarGui.Size = UDim2.new(0, 100, 0, 8) 
-    HealthBarGui.StudsOffset = Vector3.new(-5.5, 1, 0) -- Смещение влево
-    HealthBarGui.Adornee = head
+    HealthBarGui.Size = UDim2.new(0, 4, 0, 40) -- Тонкий, вертикальный 4x40
+    HealthBarGui.StudsOffset = Vector3.new(-3, 2, 0) -- 3 студа влево, 2 студа вверх от корня
+    HealthBarGui.Adornee = rootPart 
     HealthBarGui.AlwaysOnTop = true
-    HealthBarGui.ExtentsOffset = Vector3.new(0, 1.5, 0) 
     HealthBarGui.Parent = character
     
+    -- 2. Фон полосы
     local HealthBarBg = Instance.new("Frame")
     HealthBarBg.Size = UDim2.new(1, 0, 1, 0)
     HealthBarBg.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     HealthBarBg.Parent = HealthBarGui
     
+    -- 3. Заполнение (HP Fill)
     local HealthBarFill = Instance.new("Frame")
     HealthBarFill.Size = UDim2.new(1, 0, 1, 0)
     HealthBarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0) 
+    HealthBarFill.AnchorPoint = Vector2.new(0, 1) -- Якорь снизу для заполнения вверх
+    HealthBarFill.Position = UDim2.new(0, 0, 1, 0) -- Позиция внизу
     HealthBarFill.Parent = HealthBarBg
+    
+    -- 4. Текст HP
+    local HealthText = Instance.new("TextLabel")
+    HealthText.Text = "100/100" 
+    HealthText.Size = UDim2.new(0, 50, 0, 15)
+    HealthText.Position = UDim2.new(-12.5, 0, -0.1, 0) -- Слева от бара
+    HealthText.TextScaled = true
+    HealthText.BackgroundTransparency = 1
+    HealthText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    HealthText.Font = Enum.Font.SourceSans
+    HealthText.TextStrokeTransparency = 0.8
+    HealthText.ZIndex = 2
+    HealthText.Parent = HealthBarGui
     
     Highlights[plr].HealthBar = HealthBarGui
     Highlights[plr].HealthFill = HealthBarFill
+    Highlights[plr].HealthText = HealthText
 end
 
--- Обновление размера и цвета полосы здоровья
 local function UpdateHealthBar(plr)
     local highlightEntry = Highlights[plr]
-    if not highlightEntry or not highlightEntry.HealthBar or not highlightEntry.HealthFill or not plr.Character then return end
+    if not highlightEntry or not highlightEntry.HealthBar or not plr.Character then return end
     
     local humanoid = plr.Character:FindFirstChild("Humanoid")
     if not humanoid then return end
@@ -104,9 +111,10 @@ local function UpdateHealthBar(plr)
     local fillFrame = highlightEntry.HealthFill
     local ratio = humanoid.Health / humanoid.MaxHealth
     
-    fillFrame.Size = UDim2.new(ratio, 0, 1, 0)
+    -- Обновление размера для вертикальной полосы (высота = ratio)
+    fillFrame.Size = UDim2.new(1, 0, ratio, 0) 
     
-    -- Плавный переход цвета (зеленый -> красный)
+    -- Обновление цвета (плавный переход)
     local r, g
     if ratio >= 0.5 then
         r = 2 * (1 - ratio) * 255
@@ -117,11 +125,13 @@ local function UpdateHealthBar(plr)
     end
     
     fillFrame.BackgroundColor3 = Color3.fromRGB(r, g, 0)
+    
+    -- Обновление текста HP (округление до целых)
+    highlightEntry.HealthText.Text = string.format("%d/%d", math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))
 end
 
 -- ============================== ОСНОВНАЯ ЛОГИКА ==============================
 
--- Создание ESP-объектов
 local function CreateESP(plr)
     if plr == LocalPlayer or Highlights[plr] then return end
     if not IsEnemy(plr) then return end
@@ -133,24 +143,18 @@ local function CreateESP(plr)
     hl.FillTransparency = 1
     hl.OutlineTransparency = 0
     hl.OutlineColor = Color3.fromRGB(255, 0, 0)
-    hl.Enabled = true -- Всегда включено при создании, управляется UpdateAll
+    hl.Enabled = true
     hl.Parent = plr.Character
     
-    Highlights[plr] = {
-        Highlight = hl,
-        HealthBar = nil,
-        HealthFill = nil
-    }
+    Highlights[plr] = { Highlight = hl }
 
     if VisCheckEnabled then UpdateESPColor(plr) end
     if HealthBarEnabled then CreateHealthBar(plr) end
 end
 
--- Функция очистки и обновления
 local function UpdateAll()
     local playersToCleanup = {}
     
-    -- Очистка неактуальных
     for plr, hlEntry in pairs(Highlights) do 
         if not plr.Character or not IsEnemy(plr) or not ESPEnabled then 
             if hlEntry.Highlight and hlEntry.Highlight.Parent then pcall(function() hlEntry.Highlight:Destroy() end) end
@@ -158,23 +162,18 @@ local function UpdateAll()
             table.insert(playersToCleanup, plr)
         end
     end
-    for _, plr in ipairs(playersToCleanup) do
-        Highlights[plr] = nil
-    end
+    for _, plr in ipairs(playersToCleanup) do Highlights[plr] = nil end
     
-    -- Создание
     if ESPEnabled then
         for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= LocalPlayer and IsEnemy(plr) then 
-                if not Highlights[plr] then
-                    CreateESP(plr)
-                end
+            if plr ~= LocalPlayer and IsEnemy(plr) and not Highlights[plr] then 
+                CreateESP(plr)
             end
         end
     end
 end
 
--- Обработчики событий
+-- События
 Players.PlayerAdded:Connect(function(p) 
     p.CharacterAdded:Connect(function() 
         task.wait(2) 
@@ -182,28 +181,19 @@ Players.PlayerAdded:Connect(function(p)
     end) 
 end)
 
-LocalPlayer.CharacterAdded:Connect(function() task.wait(2) UpdateAll() end)
-
--- Быстрый цикл для проверки видимости и обновления Health Bar
+-- Обновление Health Bar и Vis Check
 RunService.RenderStepped:Connect(function()
     if ESPEnabled then
         for plr, hlEntry in pairs(Highlights) do
             if plr.Character then 
-                -- Обновление Health Bar
-                if HealthBarEnabled and hlEntry.HealthBar then
-                    UpdateHealthBar(plr)
-                end
-                
-                -- Обновление ESP цвета
-                if VisCheckEnabled and hlEntry.Highlight then
-                    UpdateESPColor(plr)
-                end
+                if HealthBarEnabled and hlEntry.HealthBar then UpdateHealthBar(plr) end
+                if VisCheckEnabled and hlEntry.Highlight then UpdateESPColor(plr) end
             end
         end
     end
 end)
 
--- Периодическая проверка для ловли новых игроков
+-- Периодическая проверка
 task.spawn(function()
     while task.wait(5) do 
         if ESPEnabled then UpdateAll() end 
@@ -214,4 +204,4 @@ end)
 task.wait(1)
 UpdateAll()
 
-print("The Lost Front ESP Activated (Vis Check + Health Bar)!")
+print("The Lost Front ESP Activated!")
