@@ -1,4 +1,4 @@
--- The Lost Front | АВТОСТАРТ | ESP + VIS CHECK + ВЕРТИКАЛЬНЫЙ HEALTH BAR С HP
+-- The Lost Front | АВТОСТАРТ | ESP + VIS CHECK + БЕЛЫЙ, ТОНКИЙ ВЕРТИКАЛЬНЫЙ HEALTH BAR С HP
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -63,36 +63,37 @@ local function CreateHealthBar(plr)
     
     -- 1. BillboardGui (Основной контейнер)
     local HealthBarGui = Instance.new("BillboardGui")
-    HealthBarGui.Size = UDim2.new(0, 4, 0, 40) -- Тонкий, вертикальный 4x40
-    HealthBarGui.StudsOffset = Vector3.new(-3, 2, 0) -- 3 студа влево, 2 студа вверх от корня
+    HealthBarGui.Size = UDim2.new(0, 2, 0, 30) -- Уменьшаем: 2x30 пикселей
+    HealthBarGui.StudsOffset = Vector3.new(-3.5, 2, 0) -- Немного дальше влево
     HealthBarGui.Adornee = rootPart 
     HealthBarGui.AlwaysOnTop = true
     HealthBarGui.Parent = character
     
-    -- 2. Фон полосы
+    -- 2. Фон полосы (белый)
     local HealthBarBg = Instance.new("Frame")
     HealthBarBg.Size = UDim2.new(1, 0, 1, 0)
-    HealthBarBg.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    HealthBarBg.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- Белый фон
+    HealthBarBg.BackgroundTransparency = 0.5 -- Полупрозрачный фон
     HealthBarBg.Parent = HealthBarGui
     
-    -- 3. Заполнение (HP Fill)
+    -- 3. Заполнение (HP Fill) (тоже белый)
     local HealthBarFill = Instance.new("Frame")
     HealthBarFill.Size = UDim2.new(1, 0, 1, 0)
-    HealthBarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0) 
+    HealthBarFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- Белое заполнение
     HealthBarFill.AnchorPoint = Vector2.new(0, 1) -- Якорь снизу для заполнения вверх
     HealthBarFill.Position = UDim2.new(0, 0, 1, 0) -- Позиция внизу
     HealthBarFill.Parent = HealthBarBg
     
-    -- 4. Текст HP
+    -- 4. Текст HP (белый)
     local HealthText = Instance.new("TextLabel")
-    HealthText.Text = "100/100" 
-    HealthText.Size = UDim2.new(0, 50, 0, 15)
-    HealthText.Position = UDim2.new(-12.5, 0, -0.1, 0) -- Слева от бара
+    HealthText.Text = "100" -- Будет только число HP
+    HealthText.Size = UDim2.new(0, 40, 0, 10) -- Меньше для чисел
+    HealthText.Position = UDim2.new(-12, 0, 0.2, 0) -- Слева от бара, чуть выше центра
     HealthText.TextScaled = true
     HealthText.BackgroundTransparency = 1
-    HealthText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    HealthText.Font = Enum.Font.SourceSans
-    HealthText.TextStrokeTransparency = 0.8
+    HealthText.TextColor3 = Color3.fromRGB(255, 255, 255) -- Белый текст
+    HealthText.Font = Enum.Font.SourceSansBold -- Жирный для лучшей читаемости
+    HealthText.TextStrokeTransparency = 0 -- Без обводки для белого текста
     HealthText.ZIndex = 2
     HealthText.Parent = HealthBarGui
     
@@ -111,23 +112,14 @@ local function UpdateHealthBar(plr)
     local fillFrame = highlightEntry.HealthFill
     local ratio = humanoid.Health / humanoid.MaxHealth
     
-    -- Обновление размера для вертикальной полосы (высота = ratio)
+    -- Обновление размера для вертикальной полосы: 100% ширина, 'ratio' высота
     fillFrame.Size = UDim2.new(1, 0, ratio, 0) 
     
-    -- Обновление цвета (плавный переход)
-    local r, g
-    if ratio >= 0.5 then
-        r = 2 * (1 - ratio) * 255
-        g = 255
-    else
-        r = 255
-        g = 2 * ratio * 255
-    end
+    -- Цвет заполнения всегда белый (уже задан в CreateHealthBar)
+    -- Если бы нужно было менять оттенок, логика была бы здесь
     
-    fillFrame.BackgroundColor3 = Color3.fromRGB(r, g, 0)
-    
-    -- Обновление текста HP (округление до целых)
-    highlightEntry.HealthText.Text = string.format("%d/%d", math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))
+    -- Обновление текста HP (только текущее HP, округление)
+    highlightEntry.HealthText.Text = string.format("%d", math.floor(humanoid.Health))
 end
 
 -- ============================== ОСНОВНАЯ ЛОГИКА ==============================
@@ -142,7 +134,7 @@ local function CreateESP(plr)
     hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     hl.FillTransparency = 1
     hl.OutlineTransparency = 0
-    hl.OutlineColor = Color3.fromRGB(255, 0, 0)
+    hl.OutlineColor = Color3.fromRGB(255, 0, 0) -- Начальный красный цвет
     hl.Enabled = true
     hl.Parent = plr.Character
     
@@ -165,7 +157,7 @@ local function UpdateAll()
     for _, plr in ipairs(playersToCleanup) do Highlights[plr] = nil end
     
     if ESPEnabled then
-        for _, plr in pairs(Players:GetPlayers()) do
+        for _, plr in pairs(P:GetPlayers()) do
             if plr ~= LocalPlayer and IsEnemy(plr) and not Highlights[plr] then 
                 CreateESP(plr)
             end
@@ -184,7 +176,7 @@ end)
 -- Обновление Health Bar и Vis Check
 RunService.RenderStepped:Connect(function()
     if ESPEnabled then
-        for plr, hlEntry in pairs(Highlights) do
+        for plr, hlEntry in pairs(L) do -- L - это Highlights
             if plr.Character then 
                 if HealthBarEnabled and hlEntry.HealthBar then UpdateHealthBar(plr) end
                 if VisCheckEnabled and hlEntry.Highlight then UpdateESPColor(plr) end
